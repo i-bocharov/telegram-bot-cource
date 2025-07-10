@@ -36,41 +36,49 @@ const start = async () => {
     const chatId = msg.chat.id;
 
     try {   
-        if (text === '/start') {
-        await UserModel.create( {chatId});
-        await bot.sendSticker(chatId, 'https://cdn.tlgrm.ru/stickers/ea5/382/ea53826d-c192-376a-b766-e5abc535f1c9/96/7.webp'); 
-        return bot.sendMessage(chatId, `Добро пожаловать в телеграм бот канала \n"Игорь Бочаров / Инвестиции и саморазвитие"`);
-    }
-    if (text === '/info') {
-        const user = await UserModel.findOne({chatId});
+      if (text === '/start') {
+          await UserModel.create({chatId});
 
-        return bot.sendMessage(chatId, `Тебя зовут ${msg.from.first_name} ${msg.from.last_name}, в игре у тебя ${user.right} правильных ответов и ${user.wrong} неправильных ответов.`);
-    }
-    if (text === '/game') {
-      return startGame(chatId);
-    }
-    return bot.sendMessage(chatId, 'Я тебя не понимаю, попробуй еще раз!');
+          await bot.sendSticker(chatId, 'https://cdn.tlgrm.ru/stickers/ea5/382/ea53826d-c192-376a-b766-e5abc535f1c9/96/7.webp'); 
+          return bot.sendMessage(chatId, `Добро пожаловать в телеграм бот канала \n"Игорь Бочаров / Инвестиции и саморазвитие"`);
+      }
+      if (text === '/info') {
+          const user = await UserModel.findOne({chatId});
+
+          return bot.sendMessage(chatId, `Тебя зовут ${msg.from.first_name} ${msg.from.last_name}, в игре у тебя ${user.right} правильных ответов и ${user.wrong} неправильных ответов.`);
+      }
+      if (text === '/game') {
+        return startGame(chatId);
+      }
+
+      return bot.sendMessage(chatId, 'Я тебя не понимаю, попробуй еще раз!');
     } catch (e) {
-      return bot.sendMessage(chatId, 'Произошла какая-то ошибочка!');
-    }
+      console.error('Ошибка при обработке сообщения:', e);
 
-    
+      return bot.sendMessage(chatId, 'Произошла какая-то ошибочка!');
+    }   
   });
 
   bot.on('callback_query', async msg => {
     const data = msg.data;
     const chatId = msg.message.chat.id;
+
     if (data === '/again') {
       return startGame(chatId);
     }
+
     const user = await UserModel.findOne({chatId});
+
     if (data == chats[chatId]) {
       user.right += 1;
+
       await bot.sendMessage(chatId, `Поздравляю, ты отгадал число ${chats[chatId]}!`, againOptions)
     } else {
       user.wrong += 1;
+
       await bot.sendMessage(chatId, `К сожалению ты не угадал, бот загадал число ${chats[chatId]}. Попробуй еще раз!`, againOptions);
     }
+
     await user.save();
   });
 }

@@ -11,10 +11,11 @@ const bot = new TelegramApi(token, { polling: true });
 const chats = {};
 
 const startGame = async (chatId) => {
-  await bot.sendMessage(chatId, `Игра началась! Напиши мне любое число от 0 до 9, и я отгадаю его.`);
-      const randomNumber = Math.floor(Math.random() * 10);
-      chats[chatId] = randomNumber;
-      await bot.sendMessage(chatId, `Отгадай число!`, gameOptions);
+  await bot.sendMessage(chatId, 'Игра началась!');
+      
+  const randomNumber = Math.floor(Math.random() * 10);
+  chats[chatId] = randomNumber;
+  await bot.sendMessage(chatId, `Я загадал цифру от 0 до 9, попробуй ее отгадать!`, gameOptions);
 }
 
 const start = async () => {
@@ -32,20 +33,37 @@ const start = async () => {
     { command: '/game', description: 'Начать игру' },])
 
   bot.on('message', async msg => {
+    if (!msg.chat || !msg.chat.id) {
+      console.warn('Нет chat.id в сообщении');
+      return;
+    }
+
     const text = msg.text;
     const chatId = msg.chat.id;
 
     try {   
       if (text === '/start') {
-          await UserModel.create({chatId});
+        const [user, created] = await UserModel.findOrCreate({
+          where: { chatId },
+          defaults: {}
+        });
 
-          await bot.sendSticker(chatId, 'https://cdn.tlgrm.ru/stickers/ea5/382/ea53826d-c192-376a-b766-e5abc535f1c9/96/7.webp'); 
-          return bot.sendMessage(chatId, `Добро пожаловать в телеграм бот канала \n"Игорь Бочаров / Инвестиции и саморазвитие"`);
+        try {
+          await bot.sendSticker(chatId, 'https://cdn.tlgrm.ru/stickers/ea5/382/ea53826d-c192-376a-b766-e5abc535f1c9/96/7.webp ');
+        } catch (stickerError) {
+          console.error('Ошибка при отправке стикера:', stickerError.message);
+        }
+
+        return bot.sendMessage(chatId, `Добро пожаловать в телеграм бот канала \n"Игорь Бочаров / Инвестиции и саморазвитие"`);
       }
       if (text === '/info') {
-          const user = await UserModel.findOne({chatId});
+        const user = await UserModel.findOne({ where: { chatId } });
 
-          return bot.sendMessage(chatId, `Тебя зовут ${msg.from.first_name} ${msg.from.last_name}, в игре у тебя ${user.right} правильных ответов и ${user.wrong} неправильных ответов.`);
+        if (!user) {
+          return bot.sendMessage(chatId, 'Вы ещё не начали взаимодействовать с ботом.');
+        }
+
+        return bot.sendMessage(chatId, `Тебя зовут ${msg.from.first_name} ${msg.from.last_name}, в игре у тебя ${user.right} правильных ответов и ${user.wrong} неправильных ответов.`);
       }
       if (text === '/game') {
         return startGame(chatId);
@@ -53,7 +71,7 @@ const start = async () => {
 
       return bot.sendMessage(chatId, 'Я тебя не понимаю, попробуй еще раз!');
     } catch (e) {
-      console.error('Ошибка при обработке сообщения:', e);
+      console.error('Ошибка при обработке сообщения:', e.message);
 
       return bot.sendMessage(chatId, 'Произошла какая-то ошибочка!');
     }   
@@ -67,7 +85,11 @@ const start = async () => {
       return startGame(chatId);
     }
 
-    const user = await UserModel.findOne({chatId});
+    if (!(chatId in chats)) {
+      return bot.sendMessage(chatId, 'Игра ещё не начата. Напишите /game для начала.');
+    }
+
+    const user = await UserModel.findOne({ where: { chatId } });
 
     if (data == chats[chatId]) {
       user.right += 1;
